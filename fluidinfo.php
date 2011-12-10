@@ -1,7 +1,5 @@
 <?php
-
 /**
- * fluidinfo.php
  *
  * PHP library to communicate with Fluidinfo API.
  *
@@ -9,20 +7,59 @@
  * @author PA Parent <paparent@gmail.com>
  */
 
+
 /**
  * Main class for Fluidinfo handling
  *
  * @package fluidinfo.php
  * @author PA Parent <paparent@gmail.com>
  */
+
+require_once('Zend/Http/Client/Adapter/Socket.php');
+require_once('Zend/Http/Client.php');
+
+class MyPool extends HttpRequestPool
+{
+    public function send()
+    {
+        while ($this->socketPerform()) {
+            if (!$this->socketSelect(60)) {
+                throw new HttpSocketException;
+            }
+        }
+    }
+
+    protected final function socketPerform()
+    {
+        $result = @parent::socketPerform();
+        foreach ($this->getFinishedRequests() as $r) {
+            $this->detach($r);
+            // handle response of finished request
+        }
+        return $result;
+    }
+}
+
 class Fluidinfo
 {
+	
+	public function __construct()
+	{
+		$this->pool = new MyPool();
+		$this->pool->enablePipelining(true);
+	}
+	
+	public function __destruct()
+	{
+		
+	}
+	
 	/**
 	 * Default prefix
 	 *
 	 * @var string
 	 */
-	private $prefix = 'https://fluiddb.fluidinfo.com';
+	private $prefix = 'http://fluiddb.fluidinfo.com';
 
 	/**
 	 * User credentials
@@ -30,6 +67,8 @@ class Fluidinfo
 	 * @var string
 	 */
 	private $credentials = '';
+	private $username = '';
+	private $password = '';
 
 	/**
 	 * Change the prefix
@@ -51,6 +90,8 @@ class Fluidinfo
 	public function setCredentials($username, $password)
 	{
 		$this->credentials = $username . ':' . $password;
+		$this->username = $username;
+		$this->password = $password;
 	}
 
 	/**
@@ -153,8 +194,7 @@ class Fluidinfo
 			'about' => $about
 		);
 
-		list($status, $response, $header) = $this->post('/objects', $payload);
-
+		list($status, $response, $header) = $this->post('/objects', $payload);		
 		return ($status == 201) ? $response : array($status, $header);
 	}
 
@@ -246,9 +286,14 @@ class Fluidinfo
 	 */
 	public function tagObject($id, $tag, $value = null, $valueEncoding = null, $valueType = null)
 	{
-		list($status, $response, $header) = $this->put('/objects/' . $id . '/' . $tag, $value, null, 'application/vnd.fluiddb.value+json');
-
-		return ($status == 204) ? $response : array($status, $header);
+		$this->put('/objects/' . $id . '/' . $tag, $value, null, 'application/vnd.fluiddb.value+json', true);
+	}
+	
+	public function sendTaggedObject()
+	{
+		try { $this->pool->send(); }
+		catch(HttpSocketException $e) { }
+		$this->pool->reset();
 	}
 
 	/**
@@ -486,9 +531,9 @@ class Fluidinfo
 	 * @param $params
 	 * @return object
 	 */
-	public function put($path, $payload, $params = null, $contenttype = 'application/json')
+	public function put($path, $payload, $params = null, $contenttype = 'application/json', $inPool=false)
 	{
-		return $this->call('PUT', $path, $params, $payload, $contenttype);
+		return $this->call('PUT', $path, $params, $payload, $contenttype, $inPool);
 	}
 
 	/**
@@ -511,54 +556,86 @@ class Fluidinfo
 	 * @param $payload
 	 * @return object
 	 */
-	public function call($method, $path, $params = null, $payload = null, $contenttype = 'application/json')
+	public function call($method, $path, $params = null, $payload = null, $contenttype = 'application/json', $inPool=false)
 	{
 		$url = $this->prefix . $path;
 
 		if ($params) {
 			$url .= '?' . $this->array2url($params);
 		}
+		
+		$ch = new HttpRequest();
+	
+		$met = 0;
+		if 	( $method == 'POST' ) 		$met = HTTP_METH_POST;
+		else if ( $method == 'PUT' )  	$met = HTTP_METH_PUT;
+		else if ( $method == 'DELETE' ) $met = HTTP_METH_DELETE;
+		else if ( $method == 'GET' ) 	$met = HTTP_METH_GET;
+		else if ( $method == 'HEAD' ) 	$met = HTTP_METH_HEAD;
+		else { }
+	
+		$ch->setMethod($met);
 
-		$ch = curl_init($url);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($ch, CURLOPT_HEADER, true);
-
-		if ($this->credentials) {
-			curl_setopt($ch, CURLOPT_USERPWD, $this->credentials);
-		}
-
+		if ($this->credentials) 
+			$ch->setOptions(array('url' => $url, 'timeout'=> 65, 'low_speed_time' => 65, 'useragent' => 'Google Chrome', 'httpauth' => $this->credentials));
+		else 
+			$ch->setOptions(array('url' => $url, 'timeout'=> 65, 'low_speed_time' => 65, 'useragent' => 'Google Chrome'));	
+		
 		$headers = array();
-
-		if ($method != 'GET') {
-			if ($payload OR $method == 'PUT') {
+			
+		if ($method != 'GET') 
+		{
+			if ($payload OR $method == 'PUT') 
+			{
 				$payload = json_encode($payload);
+				//$ch->setPutData($payload);
 				$headers[] = 'Content-Type: ' . $contenttype;
 				$headers[] = 'Content-Length: ' . strlen($payload);
-				curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-			}
-			if ($method == 'POST') {
-				curl_setopt($ch, CURLOPT_POST, true);
-			}
-			else {
-				curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+				if ( $method == 'POST' )
+					$ch->setRawPostData($payload);
+				else
+					$ch->setPutData($payload);
+				$ch->setContentType($contenttype);
 			}
 		}
+		
+		$ch->addHeaders($headers);
+		$ch->addHeaders(array('Expect' => ''));
 
-		curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-		$response = curl_exec($ch);
-		$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-		$header = substr($response, 0, $header_size);
-		$output = substr($response, $header_size);
-		$infos = curl_getinfo($ch);
-		curl_close($ch);
-
-		if ($infos['content_type'] == 'application/json'
-			OR $infos['content_type'] == 'application/vnd.fluiddb.value+json') {
-			$output = json_decode($output);
+		if ( $inPool == false )
+		{
+			$response = $ch->send();
+			$infos = $response->getHeaders();
+			$output = $response->getBody();
+			
+			/*
+			print "<pre>";
+			print_r($infos);
+			print "</pre>";
+			*/
+			
+			if ($infos['Content-Type'] == 'application/json'
+					OR $infos['Content-Type'] == 'application/vnd.fluiddb.value+json') 
+				
+				$output = json_decode($output);
+			
+			$return_arr = array($response->getResponseCode(), $output, implode("\n", $infos));
+			
+			print "<pre>";
+			print "Returning for method ".$method."<br />";
+			print_r($return_arr);
+			print "<br />";
+			print "</pre>";
+			
+			return $return_arr;
 		}
-
-		return array($infos['http_code'], $output, $header);
+		
+		else
+		{
+			$this->pool->attach($ch);
+		}
+		
+		
 	}
 
 	/**
@@ -582,6 +659,11 @@ class Fluidinfo
 		}
 		return implode('&', $q);
 	}
+	
+	private $ch;
+	private $pool;
+	private $zend_adapter;
+	private static $inited;
 
 };
 
