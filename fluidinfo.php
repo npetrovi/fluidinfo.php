@@ -569,8 +569,8 @@ class Fluidinfo
 		$ch = new HttpRequest();
 	
 		$met = 0;
-		if 	( $method == 'POST' ) 		$met = HTTP_METH_POST;
-		else if ( $method == 'PUT' )  	$met = HTTP_METH_PUT;
+		if ( $method == 'POST' )		$met = HTTP_METH_POST;
+		else if ( $method == 'PUT' )	$met = HTTP_METH_PUT;
 		else if ( $method == 'DELETE' ) $met = HTTP_METH_DELETE;
 		else if ( $method == 'GET' ) 	$met = HTTP_METH_GET;
 		else if ( $method == 'HEAD' ) 	$met = HTTP_METH_HEAD;
@@ -579,9 +579,9 @@ class Fluidinfo
 		$ch->setMethod($met);
 
 		if ($this->credentials) 
-			$ch->setOptions(array('url' => $url, 'timeout'=> 65, 'low_speed_time' => 65, 'useragent' => 'Google Chrome', 'httpauth' => $this->credentials));
+			$ch->setOptions(array('url' => $url, 'timeout'=> 65, 'low_speed_time' => 65, 'useragent' => 'fluid-phpv1.1', 'httpauth' => $this->credentials));
 		else 
-			$ch->setOptions(array('url' => $url, 'timeout'=> 65, 'low_speed_time' => 65, 'useragent' => 'Google Chrome'));	
+			$ch->setOptions(array('url' => $url, 'timeout'=> 65, 'low_speed_time' => 65, 'useragent' => 'fluid-phpv1.1'));	
 		
 		$headers = array();
 			
@@ -609,12 +609,6 @@ class Fluidinfo
 			$response = $ch->send();
 			$infos = $response->getHeaders();
 			$output = $response->getBody();
-			
-			/*
-			print "<pre>";
-			print_r($infos);
-			print "</pre>";
-			*/
 			
 			if ($infos['Content-Type'] == 'application/json'
 					OR $infos['Content-Type'] == 'application/vnd.fluiddb.value+json') 
