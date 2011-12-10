@@ -2,6 +2,7 @@
 /**
  *
  * PHP library to communicate with Fluidinfo API.
+ * Modified by NF Petrovici (HTTP Pipelining) <nfpetrovici@gmail.com>
  *
  * @package fluidinfo.php
  * @author PA Parent <paparent@gmail.com>
@@ -14,9 +15,6 @@
  * @package fluidinfo.php
  * @author PA Parent <paparent@gmail.com>
  */
-
-require_once('Zend/Http/Client/Adapter/Socket.php');
-require_once('Zend/Http/Client.php');
 
 class MyPool extends HttpRequestPool
 {
@@ -289,6 +287,10 @@ class Fluidinfo
 		$this->put('/objects/' . $id . '/' . $tag, $value, null, 'application/vnd.fluiddb.value+json', true);
 	}
 	
+	/**
+	 * Finish tagging an object (actually sends the request to the server)
+	 * @return none
+	 */
 	public function sendTaggedObject()
 	{
 		try { $this->pool->send(); }

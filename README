@@ -1,11 +1,19 @@
 fluidinfo.php
 =============
 
-Fluidinfo (http://www.fluidinfo.com/) client for PHP.
+Fluidinfo (http://www.fluidinfo.com/) client for PHP
+based on the original library from PA Parent (https://github.com/paparent/fluidinfo.php)
+
+Uses HTTP Pipelining for tagging objects, dramatically improving speed
+especially when you need to tag a lot of information.
 
 Dependencies
 ============
 
+You need PHP's pecl_http extension which can be installed via PECL.
+CURL has been removed.
+This uses the HttpRequestPool, HttpMessage and HttpRequest classes.
 You need PHP's JSON extension which is bundled by default with
-PHP 5.2.x. It can be installed too via PECL. The cURL extension
-is also needed (part of most distribution).
+PHP 5.2.x. It can be installed too via PECL. 
+
+
