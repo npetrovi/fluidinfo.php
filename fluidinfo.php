@@ -569,7 +569,7 @@ class Fluidinfo
 		$ch = new HttpRequest();
 	
 		$met = 0;
-		if ( $method == 'POST' )		$met = HTTP_METH_POST;
+		if ( $method == 'POST' )	$met = HTTP_METH_POST;
 		else if ( $method == 'PUT' )	$met = HTTP_METH_PUT;
 		else if ( $method == 'DELETE' ) $met = HTTP_METH_DELETE;
 		else if ( $method == 'GET' ) 	$met = HTTP_METH_GET;
@@ -658,8 +658,6 @@ class Fluidinfo
 	
 	private $ch;
 	private $pool;
-	private $zend_adapter;
-	private static $inited;
-
+	
 };
 
